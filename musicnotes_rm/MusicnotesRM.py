@@ -1,10 +1,19 @@
 from pathlib import Path
-import PyPDF2
-from PyPDF2 import pdf.PageObject as PageObject
+import fitz
 import io
+from typing import Union
+import re
+import time
+from pprint import pp
 
-def rm_watermark(pdf: Union[bytes, io.BytesIO]) -> Path:
-    reader = PyPDF2.PdfFileReader(io.BytesIO(pdf) if isinstance(pdf, bytes) else pdf)
-    for i in range(reader.getNumPages()):
-        page: PageObject = reader.getPage(i)
-        print(f"{repr(page)=}")
+def rm_watermark(pdf: Path, name: str) -> Path:
+    doc = fitz.open(pdf)
+    for page in doc:
+        rects = page.search_for(name)
+        for rect in rects:
+            page.add_redact_annot(rect)
+        page.apply_redactions()
+    par_folder = pdf.parents[1] / "new"
+    if not par_folder.is_dir():
+        par_folder.mkdir()
+    doc.save((par_folder / (time.strftime("%Y%m%d-%H%M%S") + ' ' + pdf.stem)).with_suffix(".pdf"))
